@@ -1,0 +1,90 @@
+#ifndef platform_h_included
+#define platform_h_included
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+*/
+#if !defined( __has_include )
+  #define __has_include(_X) 0
+#endif
+
+#if !defined( __has_builtin )
+  #define __has_builtin(_X) 0
+#endif
+
+#if !defined( HAVE_BYTESWAP_H ) && \
+    __has_include( <byteswap.h> )
+  #define HAVE_BYTESWAP_H
+  #include <byteswap.h>
+#endif
+
+#if   defined( HAVE_BYTESWAP_H )
+  #define swap16(_X)  bswap_16((_X))
+  #define swap32(_X)  bswap_32((_X))
+  #define swap64(_X)  bswap_64((_X))
+
+#elif __has_builtin( __builtin_bswap16 ) && \
+    __has_builtin( __builtin_bswap32 ) && \
+    __has_builtin( __builtin_bswap64 )
+  #define swap16(_X)  __builtin_bswap16((_X))
+  #define swap32(_X)  __builtin_bswap32((_X))
+  #define swap64(_X)  __builtin_bswap64((_X))
+
+#else
+  #define swap16(_X) \
+    ( ((uint16_t)((_X) & 0xFF00) >>  8) \
+    | ((uint16_t)((_X) & 0xFF00) <<  8)
+
+  #define swap32(_X) \
+    ( ((uint32_t)((_X) & 0xFF000000) >> 24) \
+    | ((uint32_t)((_X) & 0x00FF0000) >>  8) \
+    | ((uint32_t)((_X) & 0x0000FF00) <<  8) \
+    | ((uint32_t)((_X) & 0x000000FF) << 24) )
+
+  #define swap64(_X) \
+    ( ((uint64_t)((_X) & 0xFF00000000000000ULL) >> 56) \
+    | ((uint64_t)((_X) & 0x00FF000000000000ULL) >> 40) \
+    | ((uint64_t)((_X) & 0x0000FF0000000000ULL) >> 24) \
+    | ((uint64_t)((_X) & 0x000000FF00000000ULL) >>  8) \
+    | ((uint64_t)((_X) & 0x00000000FF000000ULL) <<  8) \
+    | ((uint64_t)((_X) & 0x0000000000FF0000ULL) << 24) \
+    | ((uint64_t)((_X) & 0x000000000000FF00ULL) << 40) \
+    | ((uint64_t)((_X) & 0x00000000000000FFULL) << 56) )
+
+#endif
+
+#cmakedefine   HAVE_MEMSET_S
+#if   defined( HAVE_MEMSET_S )
+  #define explicit_bzero( _P, _SZ ) memset_s( (_P), (_SZ), 0, (_SZ) )
+
+#else
+void explicit_bzero( void* p, size_t n )
+{
+    volatile unsigned char* v = (volatile unsigned char*) p;
+    while( n-- ) *v++ = 0;
+}
+
+#endif
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+*/
+#include <stdbool.h>
+#include <stdint.h>
+
+#include <stddef.h>
+#include <string.h>
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  BSD integer typedefs
+*/
+typedef uint8_t       u_char;
+typedef uint8_t       u_int8_t;
+typedef uint16_t      u_int16_t;
+typedef uint32_t      u_int32_t;
+typedef uint64_t      u_int64_t;
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  othr typedefs
+*/
+typedef unsigned char BYTE;
+
+#endif  //  platform_h_included
