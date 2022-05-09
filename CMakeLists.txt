@@ -1,23 +1,22 @@
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#   Copyright Enrico Sorichetti 2020 - 2021
-#   Distributed under the Boost Software License, Version 1.0.
-#   (See accompanying file BOOST_LICENSE_1_0.txt or copy at
-#   http://www.boost.org/LICENSE_1_0.txt)
+# Copyright Enrico Sorichetti 2022 - 2022
+# Distributed under the Boost Software License, Version 1.0.
+# (See accompanying file BOOST_LICENSE_1_0.txt or copy at
+# http://www.boost.org/LICENSE_1_0.txt)
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#
 message( STATUS "CMake version  '${CMAKE_VERSION}'" )
 message( STATUS "Processing     '${CMAKE_CURRENT_LIST_FILE}'" )
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#
-if( CMAKE_VERSION VERSION_LESS  3.20 )
+if( CMAKE_VERSION VERSION_LESS  3.22 )
   message( FATAL_ERROR "
- CMake '3.20' or higher is required,
+ CMake '3.22' or higher is required,
  You are running '${CMAKE_VERSION}'" )
 endif()
 cmake_minimum_required( VERSION ${CMAKE_VERSION} )
 
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if( NOT DEFINED ENV{CMTK} )
   message( FATAL_ERROR "
  unable to locate the cmToolKit directory" )
@@ -56,6 +55,53 @@ if( ( "${_b}" STREQUAL "${_s}" ) OR
 endif( )
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# must come before the project command
+# lowest macOS supported will be 10.13.6 High Sierra
+if( APPLE AND BUILD_OSX_UNIVERSAL_BINARIES )
+  set( CMAKE_OSX_DEPLOYMENT_TARGET 10.13.6 CACHE STRING  "" FORCE)
+  add_compile_options( -Wunguarded-availability )
+endif()
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#
+set( PROJECT crypto )
+set( VERSION 1.0.0 )
+set( DESCRIPTION "Simple AES/DES encryption and SHA1/SHA2 hashing library" )
+set( PROVIDES crypto)
+set( REQUIRES )
+set( SOVERSION )
+
+project( ${PROJECT}
+  VERSION ${VERSION}
+  LANGUAGES C CXX
+)
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+set( VERSION_STRING "${VERSION}" )
+set( VERSION_STRING "${VERSION_STRING}-${CMAKE_SYSTEM_PROCESSOR}" )
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+if( APPLE AND BUILD_OSX_UNIVERSAL_BINARIES )
+  set( CMAKE_OSX_ARCHITECTURES arm64 x86_64 )
+  set( VERSION_STRING "${VERSION_STRING}-universal" )
+endif()
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+string( TIMESTAMP  BUILD_TIMESTAMP %Y/%m/%d-%H:%M:%S )
+set( VERSION_STRING "${VERSION_STRING} ${BUILD_TIMESTAMP}" )
+
+message( STATUS "Building ${PROJECT} ${VERSION_STRING}" )
+add_compile_definitions(
+  VERSION_STRING="${VERSION_STRING}" )
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#
+set( CMAKE_C_STANDARD 11 )
+set( CMAKE_C_STANDARD_REQUIRED YES )
+set( CMAKE_CXX_STANDARD 11 )
+set( CMAKE_CXX_STANDARD_REQUIRED YES )
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #
 set( SYSTEM_NAME "${CMAKE_HOST_SYSTEM_NAME}" )
 string( TOUPPER "${SYSTEM_NAME}" SYSTEM_NAME_UC  )
@@ -65,48 +111,15 @@ add_compile_definitions(
   ${SYSTEM_NAME_UC}
 )
 
-#[[ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  must come before the project command
-  lowest macOS supported 10.12 sierra
-#]]
-if( APPLE AND BUILD_OSX_UNIVERSAL_BINARIES )
-  set( CMAKE_OSX_DEPLOYMENT_TARGET 10.12 CACHE STRING  "" FORCE)
-  set( CMAKE_C_FLAGS   "-Wunguarded-availability" )
-  set( CMAKE_CXX_FLAGS "-Wunguarded-availability" )
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# arch/bits
+math( EXPR HOST_ARCHITECTURE "8 * ${CMAKE_SIZEOF_VOID_P}" OUTPUT_FORMAT DECIMAL)
+if( NOT ( HOST_ARCHITECTURE MATCHES 64 ) )
+  message( SEND_ERROR "
+ unsupported Architecture '${HOST_ARCHITECTURE}'" )
 endif()
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#
-set( PROJECT crypto )
-set( VERSION 1.0.0 )
-set( DESCRIPTION "Simple AES/DES encryption and SHA1/SHA2 hashing library" )
-project( ${PROJECT}
-  VERSION ${VERSION}
-  LANGUAGES C CXX )
-set( VERSION_STRING "${VERSION}" )
-set( VERSION_STRING "${VERSION_STRING}-${CMAKE_SYSTEM_PROCESSOR}" )
-
-#
-if( APPLE AND BUILD_OSX_UNIVERSAL_BINARIES )
-  set( CMAKE_OSX_ARCHITECTURES arm64 x86_64 )
-  set( VERSION_STRING "${VERSION_STRING}-universal" )
-endif()
-
-string( TIMESTAMP  BUILD_TIMESTAMP %Y/%m/%d-%H:%M:%S )
-set( VERSION_STRING "${VERSION_STRING} ${BUILD_TIMESTAMP}" )
-
-message( STATUS "Building ${PROJECT} ${VERSION_STRING}" )
-add_compile_definitions(
-  VERSION_STRING="${VERSION_STRING}" )
-
-# bits
-math( EXPR HOST_ARCH "8 * ${CMAKE_SIZEOF_VOID_P}" OUTPUT_FORMAT DECIMAL)
-if( NOT ( HOST_ARCH MATCHES 64 ) )
-  message( SEND_ERROR "
- unsupported Architecture '${HOST_ARCH}-bits'" )
-endif()
-# message( STATUS "Building ${PROJECT} ${VERSION_STRING} '${HOST_ARCH}-bits'" )
-
 # endian-ness
 if( NOT ( CMAKE_C_BYTE_ORDER STREQUAL "LITTLE_ENDIAN" ) )
   message( SEND_ERROR "
@@ -114,22 +127,16 @@ if( NOT ( CMAKE_C_BYTE_ORDER STREQUAL "LITTLE_ENDIAN" ) )
 endif()
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# cleanup the CMAKE_SYSTEM_PREFIX_PATH
-if( APPLE )
-  list(REMOVE_DUPLICATES CMAKE_SYSTEM_PREFIX_PATH )
-  set( XPATHS /opt/homebrew /opt/macports /usr/X11R6 /usr/pkg /opt /sw /opt/local )
-  foreach( xpath ${XPATHS} )
-    list( REMOVE_ITEM CMAKE_SYSTEM_PREFIX_PATH ${xpath} )
-  endforeach()
-endif()
-
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#   setup the proper install paths according to the GNU standards,
+# setup the install paths according to the GNU standards
 include( installDirectories )
 
 set( CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${INST_BIN_DIR}" )
 set( CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${INST_LIB_DIR}" )
 set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${INST_LIB_DIR}" )
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# the compiler flags
+include( defaultCompilerFlags )
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # rpath handling
@@ -138,21 +145,21 @@ set( CMAKE_BUILD_WITH_INSTALL_RPATH FALSE )
 set( CMAKE_INSTALL_RPATH "@executable_path/../${INST_LIB_DIR}" )
 set( CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE )
 
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#
 set( CMAKE_POSITION_INDEPENDENT_CODE ON )
 set( CMAKE_EXPORT_COMPILE_COMMANDS  ON )
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#
-option( WITH_IPO      ""  ON )
-option( WITH_CCACHE   ""  ON )
-
 option( BUILD_SHARED  ""  OFF )
 option( BUILD_STATIC  ""  ON )
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#
+option( WITH_CCACHE   ""  ON )
+if( WITH_CCACHE )
+  include( ccache )
+endif()
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+option( WITH_IPO      ""  ON )
 if( WITH_IPO )
   include( CheckIPOSupported )
   check_ipo_supported( RESULT HAVE_IPO_SUPPORT )
@@ -162,62 +169,53 @@ if( WITH_IPO )
 endif()
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#
-if( WITH_CCACHE )
-  include( ccache )
-endif()
-
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# we assume that the system has the ISO/IEC 9899:1999 (C99) headers
-# and terminate if not
 include( CheckIncludeFile )
 include( checkHeader )
 
-check_header( required
-  # ISO/IEC 9899:1990 (C89, C90) headers
-  assert.h  ctype.h errno.h   float.h   limits.h
-  locale.h  math.h  setjmp.h  signal.h  stdarg.h
-  stddef.h  stdio.h stdlib.h  string.h  time.h
-
-  # ISO/IEC 9899:1990/Amd.1:1995 headers
-  iso646.h  wchar.h wctype.h
-
-  # ISO/IEC 9899:1999 (C99) headers
-  complex.h fenv.h  inttypes.h  stdbool.h stdint.h
-  tgmath.h
-)
-
-check_header(
-  # ISO/IEC 9899:2011 (C11) headers
-  # threads.h and uchar.h migh be missing
-  stdalign.h  stdatomic.h stdnoreturn.h
-  threads.h uchar.h
-)
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# we assume that the system has the ISO/IEC headers and terminate if not
+include( isoHeaders )
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# project headers
+# headers
 check_header(
   byteswap.h
   ssh.h
 )
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#
+# check for __int128_t
+include( checkType )
+type_is_defined( __int128_t )
+type_get_size( __int128_t )
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# functions
 include( CheckFunctionExists )
 include( checkFunction )
-
-check_function(
-  memset_s
-)
-
-# just to warn about some odd definitions
-include( haveBrokenSizeMax )
-include( fastTypesLengthsMatch )
 
 # the builtins
 include( __builtin_bswap )
 include( __builtin_clz )
 
+#
+check_function(
+  memset_s
+  arc4random
+)
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# just to warn about some odd definitions
+include( haveBrokenSizeMax )
+include( fastTypesLengthsMatch )
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# attributes
+include( inlineAttr )
+include( threadLocalAttr )
+include( weakAttr )
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # the compiler flags
 include( defaultCompilerFlags )
 
@@ -231,40 +229,23 @@ include( ${PROJECT}_DIAG OPTIONAL )
 include_directories(
   ${CMAKE_BINARY_DIR}
   ${CMAKE_SOURCE_DIR}
-  ${CMAKE_SOURCE_DIR}/src/include
+  ${CMAKE_SOURCE_DIR}/include
 )
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#   platform.h
-if( EXISTS ${CMAKE_SOURCE_DIR}/platform.h.in )
-  configure_file( ${CMAKE_SOURCE_DIR}/platform.h.in
-    ${CMAKE_BINARY_DIR}/platform.h
-  )
-  add_compile_definitions(
-    HAVE_PLATFORM_H )
-endif()
-
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# sources
+# sources and headers
 include( ${PROJECT}_SRCS )
-
-# headers
-include( ${PROJECT}_HDRS )
+include( ${PROJECT}_HDRS OPTIONAL )
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # the libraries ( SHARED/STATIC )
-
-set( ${PROJECT}_PROVIDES "${PROJECT}")
-
-set( INST_LIBS "")
-foreach( library  ${${PROJECT}_PROVIDES} )
-  set( INST_LIBS "${INST_LIBS}-l${library} " )
-endforeach()
-string( STRIP "${INST_LIBS}"  INST_LIBS )
-
 include( buildLibraries )
 
-foreach( library  ${${PROJECT}_PROVIDES} )
+foreach( library  ${PROVIDES} )
+
+  if( BUILD_SHARED OR BUILD_STATIC )
+    build_headers( ${library} )
+  endif()
 
   build_objects( ${library} )
 
@@ -276,13 +257,37 @@ foreach( library  ${${PROJECT}_PROVIDES} )
     build_static_library( ${library} )
   endif()
 
-  if( BUILD_SHARED OR BUILD_STATIC )
-    build_headers( ${library} )
-  endif()
 endforeach()
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# platform.h
+if( EXISTS ${CMAKE_SOURCE_DIR}/platform.h.in )
+  configure_file( ${CMAKE_SOURCE_DIR}/platform.h.in
+    ${CMAKE_BINARY_DIR}/platform.h
+  )
+  add_compile_definitions(
+    HAVE_PLATFORM_H )
+endif()
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# config.h
+if( EXISTS ${CMAKE_SOURCE_DIR}/config.h.in )
+  configure_file( ${CMAKE_SOURCE_DIR}/config.h.in
+    ${CMAKE_BINARY_DIR}/config.h
+  )
+  add_compile_definitions(
+    HAVE_CONFIG_H )
+endif()
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # the pkgconfig control file ${PROJECT}.pc
+
+set( INST_LIBS "")
+foreach( library  ${PROVIDES} )
+  set( INST_LIBS "${INST_LIBS}-l${library} " )
+endforeach()
+string( STRIP "${INST_LIBS}"  INST_LIBS )
+
 include( buildPkgconfigPc OPTIONAL)
 if( COMMAND build_pkgconfig_pc )
   build_pkgconfig_pc( ${PROJECT} )
@@ -292,7 +297,7 @@ if( COMMAND build_pkgconfig_sh )
 endif()
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#   the uninstaller
+# the uninstaller
 configure_file( $ENV{CMTK}/cmake/Templates/cmake_uninstall.cmake.in
   ${CMAKE_BINARY_DIR}/cmake_uninstall.cmake
   IMMEDIATE @ONLY )
@@ -306,3 +311,7 @@ include( configurationReport )
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #
 vdump( "main" "exit" )
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#
+include( cpack )
